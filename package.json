@@ -1,0 +1,16 @@
+{
+  "name": "bulk-revoke-delegations",
+  "version": "1.0.0",
+  "description": "Bulk revoke delegations on all delegated Axies owned by a wallet",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  }
+}
