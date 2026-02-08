@@ -1,5 +1,7 @@
 # Bulk Revoke Delegation
 
+**Web App: [bulk-revoke-delegations.vercel.app](https://bulk-revoke-delegations.vercel.app)**
+
 Bulk revoke delegations on all delegated Axies owned by a wallet.
 
 ## Setup
