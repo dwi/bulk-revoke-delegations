@@ -131,7 +131,7 @@ function App() {
         const batch = tokenIds.slice(i, i + MULTICALL_BATCH_SIZE)
         const calls = batch.map((tokenId) => ({
           target: CONTRACTS.AXIE_DELEGATION as `0x${string}`,
-          allowFailure: false,
+          allowFailure: true,
           callData: encodeFunctionData({
             abi: axieDelegationAbi,
             functionName: 'getDelegationInfo',
@@ -147,6 +147,7 @@ function App() {
         })
 
         results.forEach((result, j) => {
+          if (!result.success) return
           const decoded = decodeFunctionResult({
             abi: axieDelegationAbi,
             functionName: 'getDelegationInfo',
@@ -171,7 +172,7 @@ function App() {
       setTotalDelegated(allDelegatedIds.length)
       setDelegatedIds(allDelegatedIds)
 
-      setBatches(chunkIntoBatches(delegatedIds, batchSize))
+      setBatches(chunkIntoBatches(allDelegatedIds, batchSize))
       setFetchProgress('')
       setFetching(false)
       setFetched(true)
