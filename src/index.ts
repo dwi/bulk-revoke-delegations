@@ -87,9 +87,12 @@ async function main() {
 
   console.log(`  Found ${allAxieIds.length} Axies\n`)
 
-  // Step 2: Filter to delegated only
+  // Step 2: Check delegation info for all Axies
   console.log('Checking delegation status...')
-  const delegatedAxies: bigint[] = []
+  const activeAxies: bigint[] = []
+  const expiredAxies: bigint[] = []
+  const now = BigInt(Math.floor(Date.now() / 1000))
+  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
   for (let i = 0; i < allAxieIds.length; i += MULTICALL_BATCH_SIZE) {
     const batch = allAxieIds.slice(i, i + MULTICALL_BATCH_SIZE)
@@ -99,7 +102,7 @@ async function main() {
       allowFailure: true,
       callData: encodeFunctionData({
         abi: axieDelegationAbi,
-        functionName: 'isDelegationActive',
+        functionName: 'getDelegationInfo',
         args: [tokenId]
       })
     }))
@@ -113,13 +116,18 @@ async function main() {
 
     for (let j = 0; j < batch.length; j++) {
       if (results[j].success) {
-        const isDelegated = decodeFunctionResult({
+        const [delegatee, info] = decodeFunctionResult({
           abi: axieDelegationAbi,
-          functionName: 'isDelegationActive',
+          functionName: 'getDelegationInfo',
           data: results[j].returnData
-        }) as boolean
-        if (isDelegated) {
-          delegatedAxies.push(batch[j])
+        }) as readonly [string, { _delegatedAt: bigint; _expiryTs: bigint; _permissionBitMap: bigint }]
+
+        if (delegatee !== ZERO_ADDRESS) {
+          if (info._expiryTs > now) {
+            activeAxies.push(batch[j])
+          } else {
+            expiredAxies.push(batch[j])
+          }
         }
       }
     }
@@ -128,7 +136,8 @@ async function main() {
     console.log(`  Checked ${checked}/${allAxieIds.length}...`)
   }
 
-  console.log(`  Found ${delegatedAxies.length} delegated Axies\n`)
+  const delegatedAxies = [...activeAxies, ...expiredAxies]
+  console.log(`  Found ${delegatedAxies.length} delegated Axies (${activeAxies.length} active, ${expiredAxies.length} expired)\n`)
 
   if (delegatedAxies.length === 0) {
     console.log('Done. No delegations to revoke.')

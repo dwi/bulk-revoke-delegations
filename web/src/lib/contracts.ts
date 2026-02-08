@@ -36,6 +36,25 @@ export const axieDelegationAbi = [
     type: 'function'
   },
   {
+    inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
+    name: 'getDelegationInfo',
+    outputs: [
+      { internalType: 'address', name: 'delegatee', type: 'address' },
+      {
+        components: [
+          { internalType: 'uint64', name: '_delegatedAt', type: 'uint64' },
+          { internalType: 'uint64', name: '_expiryTs', type: 'uint64' },
+          { internalType: 'uint64', name: '_permissionBitMap', type: 'uint64' }
+        ],
+        internalType: 'struct IAxieDelegation.DelegationInfo',
+        name: 'info',
+        type: 'tuple'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
     inputs: [{ internalType: 'uint256[]', name: 'tokenIds', type: 'uint256[]' }],
     name: 'bulkRevokeDelegations',
     stateMutability: 'nonpayable',

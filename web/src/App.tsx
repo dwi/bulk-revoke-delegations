@@ -44,6 +44,8 @@ function App() {
   const [fetched, setFetched] = useState(false)
   const [totalAxies, setTotalAxies] = useState(0)
   const [totalDelegated, setTotalDelegated] = useState(0)
+  const [totalActive, setTotalActive] = useState(0)
+  const [totalExpired, setTotalExpired] = useState(0)
   const [delegatedIds, setDelegatedIds] = useState<bigint[]>([])
   const [batchSize, setBatchSize] = useState(REVOKE_BATCH_SIZE)
   const [batchSizeInput, setBatchSizeInput] = useState(String(REVOKE_BATCH_SIZE))
@@ -120,7 +122,10 @@ function App() {
       }
 
       setFetchProgress('Checking delegation status...')
-      const delegatedIds: bigint[] = []
+      const activeIds: bigint[] = []
+      const expiredIds: bigint[] = []
+      const now = BigInt(Math.floor(Date.now() / 1000))
+      const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
       for (let i = 0; i < tokenIds.length; i += MULTICALL_BATCH_SIZE) {
         const batch = tokenIds.slice(i, i + MULTICALL_BATCH_SIZE)
@@ -129,7 +134,7 @@ function App() {
           allowFailure: false,
           callData: encodeFunctionData({
             abi: axieDelegationAbi,
-            functionName: 'isDelegationActive',
+            functionName: 'getDelegationInfo',
             args: [tokenId],
           }),
         }))
@@ -142,21 +147,29 @@ function App() {
         })
 
         results.forEach((result, j) => {
-          const isActive = decodeFunctionResult({
+          const decoded = decodeFunctionResult({
             abi: axieDelegationAbi,
-            functionName: 'isDelegationActive',
+            functionName: 'getDelegationInfo',
             data: result.returnData,
-          })
-          if (isActive) {
-            delegatedIds.push(batch[j])
+          }) as readonly [string, { _delegatedAt: bigint; _expiryTs: bigint; _permissionBitMap: bigint }]
+          const [delegatee, info] = decoded
+          if (delegatee !== ZERO_ADDRESS) {
+            if (info._expiryTs > now) {
+              activeIds.push(batch[j])
+            } else {
+              expiredIds.push(batch[j])
+            }
           }
         })
 
         setFetchProgress(`Checked ${Math.min(i + MULTICALL_BATCH_SIZE, tokenIds.length)} / ${tokenIds.length}...`)
       }
 
-      setTotalDelegated(delegatedIds.length)
-      setDelegatedIds(delegatedIds)
+      const allDelegatedIds = [...activeIds, ...expiredIds]
+      setTotalActive(activeIds.length)
+      setTotalExpired(expiredIds.length)
+      setTotalDelegated(allDelegatedIds.length)
+      setDelegatedIds(allDelegatedIds)
 
       setBatches(chunkIntoBatches(delegatedIds, batchSize))
       setFetchProgress('')
@@ -232,7 +245,9 @@ function App() {
               <div className="flex items-center gap-4">
                 <Stat label="Owned" value={totalAxies} />
                 <div className="w-px h-6 bg-border" />
-                <Stat label="Delegated" value={totalDelegated} accent />
+                <Stat label="Active" value={totalActive} accent />
+                <div className="w-px h-6 bg-border" />
+                <Stat label="Expired" value={totalExpired} warning />
               </div>
               {batches.length > 0 && (
                 <span className="text-xs text-muted-foreground font-mono">
@@ -308,10 +323,10 @@ function App() {
   )
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+function Stat({ label, value, accent, warning }: { label: string; value: number; accent?: boolean; warning?: boolean }) {
   return (
     <div className="text-center">
-      <div className={`text-lg font-semibold font-mono tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>
+      <div className={`text-lg font-semibold font-mono tabular-nums ${warning ? 'text-warning' : accent ? 'text-primary' : 'text-foreground'}`}>
         {value.toLocaleString()}
       </div>
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
