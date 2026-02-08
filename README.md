@@ -1,8 +1,8 @@
-# Bulk Revoke Delegation
+# Bulk Revoke Axie Delegation
 
 **Web App: [bulk-revoke-delegations.vercel.app](https://bulk-revoke-delegations.vercel.app)**
 
-Bulk revoke delegations on all delegated Axies owned by a wallet.
+Bulk revoke delegations (active and expired) on all delegated Axies owned by a wallet on the Ronin chain.
 
 ## Setup
 
@@ -24,7 +24,7 @@ bun start
 The script will:
 
 1. Fetch all Axies owned by the wallet
-2. Check which ones have active delegations
+2. Check which ones have active or expired delegations
 3. Write delegated Axie IDs to `delegated_axies.txt`
 4. Prompt for confirmation — you can edit the file before confirming to skip specific Axies
 5. Revoke delegations in batches of 100
