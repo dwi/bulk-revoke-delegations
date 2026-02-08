@@ -22,6 +22,18 @@ interface Batch {
   error?: string
 }
 
+function chunkIntoBatches(ids: bigint[], size: number): Batch[] {
+  const batches: Batch[] = []
+  for (let i = 0; i < ids.length; i += size) {
+    batches.push({
+      batchNum: batches.length + 1,
+      axieIds: ids.slice(i, i + size),
+      status: 'pending',
+    })
+  }
+  return batches
+}
+
 function App() {
   const { address, isConnected } = useAccount()
   const publicClient = usePublicClient()
@@ -32,6 +44,20 @@ function App() {
   const [fetched, setFetched] = useState(false)
   const [totalAxies, setTotalAxies] = useState(0)
   const [totalDelegated, setTotalDelegated] = useState(0)
+  const [delegatedIds, setDelegatedIds] = useState<bigint[]>([])
+  const [batchSize, setBatchSize] = useState(REVOKE_BATCH_SIZE)
+  const [batchSizeInput, setBatchSizeInput] = useState(String(REVOKE_BATCH_SIZE))
+
+  const applyBatchSize = useCallback(() => {
+    const parsed = parseInt(batchSizeInput, 10)
+    if (isNaN(parsed) || parsed < 1) return
+    const clamped = Math.min(Math.max(parsed, 1), 1000)
+    setBatchSize(clamped)
+    setBatchSizeInput(String(clamped))
+    if (delegatedIds.length > 0) {
+      setBatches(chunkIntoBatches(delegatedIds, clamped))
+    }
+  }, [batchSizeInput, delegatedIds])
 
   const fetchDelegatedAxies = useCallback(async () => {
     if (!address || !publicClient) return
@@ -130,17 +156,9 @@ function App() {
       }
 
       setTotalDelegated(delegatedIds.length)
+      setDelegatedIds(delegatedIds)
 
-      const revokeBatches: Batch[] = []
-      for (let i = 0; i < delegatedIds.length; i += REVOKE_BATCH_SIZE) {
-        revokeBatches.push({
-          batchNum: revokeBatches.length + 1,
-          axieIds: delegatedIds.slice(i, i + REVOKE_BATCH_SIZE),
-          status: 'pending',
-        })
-      }
-
-      setBatches(revokeBatches)
+      setBatches(chunkIntoBatches(delegatedIds, batchSize))
       setFetchProgress('')
       setFetching(false)
       setFetched(true)
@@ -149,7 +167,7 @@ function App() {
       setFetchProgress(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setFetching(false)
     }
-  }, [address, publicClient])
+  }, [address, publicClient, batchSize])
 
   const confirmedCount = batches.filter((b) => b.status === 'confirmed').length
 
@@ -222,6 +240,35 @@ function App() {
                 </span>
               )}
             </div>
+
+            {/* Batch size setting */}
+            {totalDelegated > 0 && (
+              <div className="flex items-center gap-2 rounded-lg bg-card border border-border px-4 py-3">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">
+                  Batch size
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={batchSizeInput}
+                  onChange={(e) => setBatchSizeInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && applyBatchSize()}
+                  className="w-20 h-8 rounded-md bg-muted border border-border px-2 text-sm font-mono text-foreground text-center focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={applyBatchSize}
+                  disabled={parseInt(batchSizeInput, 10) === batchSize}
+                >
+                  Apply
+                </Button>
+                <span className="text-[11px] text-muted-foreground ml-auto font-mono">
+                  {batches.length} batch{batches.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+            )}
 
             {batches.length === 0 ? (
               <div className="text-center py-12">
